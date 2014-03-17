@@ -15,12 +15,24 @@ class GPGServer(ProxyServer):
         print "To: %s" % msg['to']
         print "Subject: %s" % msg['subject']
 
-        if msg['subject'][-10:-8] == "0x": # TODO: Allow specification of full fingerprint
+        keyid = None
+        if msg['subject'][-10:-8] == "0x": # Regular KeyID (0x12345678)
             keyid = msg['subject'][-10:]
             newsub = msg['subject'][:-10]
             del msg['subject']
             msg['subject'] = newsub
-
+        elif msg['subject'][-18:-16] == "0x": # Long KeyID (0x1234567890ABCDEF)
+            keyid = msg['subject'][-18:]
+            newsub = msg['subject'][:-18]
+            del msg['subject']
+            msg['subject'] = newsub
+        elif msg['subject'][-42:-40] == "0x": # Full Fingerprint w/o spaces
+            keyid = msg['subject'][-40:]
+            newsub = msg['subject'][:-42]
+            del msg['subject']
+            msg['subject'] = newsub
+        
+        if keyid:
             print "Encryption requested."
             print "KeyID: %s" % keyid
             print "New Subject: %s" % newsub
