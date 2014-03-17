@@ -1,0 +1,5 @@
+# Sublime text files
+*.sublime-*
+
+# Python temp files
+*.pyc
