@@ -23,3 +23,6 @@ mail_signature_signed = "\n\n--\nThis message was automatically PGP-signed."
 mail_signature_encrypted = "\n\n--\nThis message was automatically PGP-encrypted."
 # Consider adding an URL explaining your signing policies or similar 
 # information
+
+# Signing mode
+gpg_sign_all = True
