@@ -19,7 +19,7 @@ class GPGServer(ProxyServer):
         print "To: %s" % msg['to']
         print "Subject: %s" % msg['subject']
 
-        if msg['subject'][-10:-8] == "0x":
+        if msg['subject'][-10:-8] == "0x": # TODO: Allow specification of full fingerprint
             keyid = msg['subject'][-10:]
             newsub = msg['subject'][:-10]
             del msg['subject']
@@ -38,7 +38,7 @@ class GPGServer(ProxyServer):
                     cnt += 1
                     print "Attachment %i: %s" % (cnt, filename)
                     attachment = part.get_payload(decode=True)
-                    att_encrypted = gpg.encrypt(attachment, keyid, sign=self.signing_key)
+                    att_encrypted = gpg.encrypt(attachment, keyid, sign=self.signing_key) # TODO: Handle missing Key
                     part.set_payload(base64.b64encode(str(att_encrypted)))
                     part.set_type("application/octet-stream")
                     ct_parts = part['Content-Type'].split('"')
@@ -52,7 +52,7 @@ class GPGServer(ProxyServer):
                 else:
                     body = part.get_payload(decode=True)
                     body += "\n\n--\nDiese Nachricht wurde automatisch signiert."
-                    cbody = gpg.encrypt(body, keyid, sign=self.signing_key)
+                    cbody = gpg.encrypt(body, keyid, sign=self.signing_key) # TODO: Handle missing Key
                     part.set_payload(str(cbody))
 
             data = str(msg)[str(msg).find("\n")+1:] # TODO: Convert to non-horrible syntax
