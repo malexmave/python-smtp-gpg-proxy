@@ -31,6 +31,7 @@ class GPGServer(ProxyServer):
             print "KeyID: %s" % keyid
             print "New Subject: %s" % newsub
 
+            # TODO: Add header indicating that this program was used
             cnt = 0
             for part in msg.walk():
                 if part.get_content_maintype() == "multipart":
@@ -54,7 +55,7 @@ class GPGServer(ProxyServer):
                     part['Content-Disposition'] = new_cd
                 else:
                     body = part.get_payload(decode=True)
-                    body += "\n\n--\nDiese Nachricht wurde automatisch signiert."
+                    body += "\n\n--\nDiese Nachricht wurde automatisch signiert." # TODO: Put this into a config variable
                     cbody = gpg.encrypt(body, [keyid, self.signing_key], sign=self.signing_key, always_trust = True) # TODO: Handle missing Key
                     # TODO: Seperate signing and self-encryption key
                     part.set_payload(str(cbody))
