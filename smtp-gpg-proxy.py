@@ -41,6 +41,7 @@ class GPGServer(ProxyServer):
                     print "Attachment %i: %s" % (cnt, filename)
                     attachment = part.get_payload(decode=True)
                     att_encrypted = gpg.encrypt(attachment, [keyid, self.signing_key], sign=self.signing_key, always_trust = True) # TODO: Handle missing Key
+                    # TODO: Seperate signing and self-encryption key
                     part.set_payload(base64.b64encode(str(att_encrypted)))
                     part.set_type("application/octet-stream")
                     ct_parts = part['Content-Type'].split('"')
@@ -55,6 +56,7 @@ class GPGServer(ProxyServer):
                     body = part.get_payload(decode=True)
                     body += "\n\n--\nDiese Nachricht wurde automatisch signiert."
                     cbody = gpg.encrypt(body, [keyid, self.signing_key], sign=self.signing_key, always_trust = True) # TODO: Handle missing Key
+                    # TODO: Seperate signing and self-encryption key
                     part.set_payload(str(cbody))
 
             data = str(msg)[str(msg).find("\n")+1:] # TODO: Convert to non-horrible syntax
