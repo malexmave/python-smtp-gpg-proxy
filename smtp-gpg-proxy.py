@@ -1,21 +1,15 @@
 import asyncore
 import gnupg
 import base64
+import config
 
 from email.parser import Parser
 from secure_smtpd import ProxyServer
 
 class GPGServer(ProxyServer):
-    def __init__(self, *args, **kwargs):
-        self.signing_key = kwargs['signing_key']
-        self.gnupghome = kwargs['gnupghome']
-        del kwargs['gnupghome']
-        del kwargs['signing_key']
-        ProxyServer.__init__(self, *args, **kwargs)
 
-    
     def process_message(self, peer, mailfrom, rcpttos, data):
-        gpg = gnupg.GPG(gnupghome=self.gnupghome)
+        gpg = gnupg.GPG(gnupghome=config.gpg_home)
         msg = Parser().parsestr(data)
         print "From: %s" % msg['from']
         print "To: %s" % msg['to']
@@ -41,8 +35,8 @@ class GPGServer(ProxyServer):
                     cnt += 1
                     print "Attachment %i: %s" % (cnt, filename)
                     attachment = part.get_payload(decode=True)
-                    att_encrypted = gpg.encrypt(attachment, [keyid, self.signing_key], sign=self.signing_key, always_trust = True) # TODO: Handle missing Key
-                    # TODO: Seperate signing and self-encryption key
+                    att_encrypted = gpg.encrypt(attachment, [keyid, config.encrypt_to], 
+                        sign=config.signing_key, always_trust = True) # TODO: Handle missing Key
                     part.set_payload(base64.b64encode(str(att_encrypted)))
                     part.set_type("application/octet-stream")
                     ct_parts = part['Content-Type'].split('"')
@@ -55,9 +49,9 @@ class GPGServer(ProxyServer):
                     part['Content-Disposition'] = new_cd
                 else:
                     body = part.get_payload(decode=True)
-                    body += "\n\n--\nDiese Nachricht wurde automatisch signiert." # TODO: Put this into a config variable
-                    cbody = gpg.encrypt(body, [keyid, self.signing_key], sign=self.signing_key, always_trust = True) # TODO: Handle missing Key
-                    # TODO: Seperate signing and self-encryption key
+                    body += config.mail_signature_encrypted
+                    cbody = gpg.encrypt(body, [keyid, config.encrypt_to], 
+                        sign=config.signing_key, always_trust = True) # TODO: Handle missing Key
                     part.set_payload(str(cbody))
 
             data = str(msg)[str(msg).find("\n")+1:] # TODO: Convert to non-horrible syntax
@@ -66,8 +60,10 @@ class GPGServer(ProxyServer):
         ProxyServer.process_message(self, peer, mailfrom, rcpttos, data)
 
 
-def run(remotesrv, remoteport, signkey, gnupghome):
-    foo = GPGServer(('localhost', 25), (remotesrv, remoteport), ssl_out_only=True, signing_key = signkey, gnupghome=gnupghome)
+def run():
+    foo = GPGServer(('localhost', 25), 
+        (config.smtp_out_add, config.smtp_out_port), 
+        ssl_out_only=config.smtp_out_force_ssl)
     try:
         asyncore.loop()
     except KeyboardInterrupt:
@@ -75,9 +71,4 @@ def run(remotesrv, remoteport, signkey, gnupghome):
 
 
 if __name__ == '__main__':
-    remotesrv = raw_input("Please enter the remote server address (smtp.strato.de): ")
-    remoteport = int(raw_input("Please enter the remote server port (465): "))
-    signkey = "6B1606D7135190326DA7FA56400F348F831A9263"
-    gnupghome = "/home/max/.gnupg"
-    print
-    run(remotesrv, remoteport, signkey, gnupghome)
+    run()
