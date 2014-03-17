@@ -8,12 +8,14 @@ from secure_smtpd import ProxyServer
 class GPGServer(ProxyServer):
     def __init__(self, *args, **kwargs):
         self.signing_key = kwargs['signing_key']
+        self.gnupghome = kwargs['gnupghome']
+        del kwargs['gnupghome']
         del kwargs['signing_key']
         ProxyServer.__init__(self, *args, **kwargs)
 
     
     def process_message(self, peer, mailfrom, rcpttos, data):
-        gpg = gnupg.GPG(gnupghome="/home/max/.gnupg")
+        gpg = gnupg.GPG(gnupghome=self.gnupghome)
         msg = Parser().parsestr(data)
         print "From: %s" % msg['from']
         print "To: %s" % msg['to']
@@ -61,8 +63,8 @@ class GPGServer(ProxyServer):
         ProxyServer.process_message(self, peer, mailfrom, rcpttos, data)
 
 
-def run(remotesrv, remoteport, signkey):
-    foo = GPGServer(('localhost', 25), (remotesrv, remoteport), ssl_out_only=True, signing_key = signkey)
+def run(remotesrv, remoteport, signkey, gnupghome):
+    foo = GPGServer(('localhost', 25), (remotesrv, remoteport), ssl_out_only=True, signing_key = signkey, gnupghome=gnupghome)
     try:
         asyncore.loop()
     except KeyboardInterrupt:
@@ -73,5 +75,6 @@ if __name__ == '__main__':
     remotesrv = raw_input("Please enter the remote server address (smtp.strato.de): ")
     remoteport = int(raw_input("Please enter the remote server port (465): "))
     signkey = "6B1606D7135190326DA7FA56400F348F831A9263"
+    gnupghome = "/home/max/.gnupg"
     print
-    run(remotesrv, remoteport, signkey)
+    run(remotesrv, remoteport, signkey, gnupghome)
