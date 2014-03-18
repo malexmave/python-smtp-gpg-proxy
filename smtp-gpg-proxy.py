@@ -1,13 +1,15 @@
 import asyncore
-import gnupg
 import base64
 import config
-import time
 import getpass
+import gnupg
+import time
 
 from email.parser import Parser
 from email.mime.application import MIMEApplication
 from secure_smtpd import ProxyServer
+
+__version__ = "0.0.0"
 
 def printLog(msg, level):
     if config.logging in level:
@@ -111,7 +113,7 @@ class GPGServer(ProxyServer):
                 printLog("KeyID: %s" % keyid, [config.LOG_META])
                 printLog("New Subject: %s" % newsub, [config.LOG_META])
 
-            # TODO: Add header indicating that this program was used
+            msg.add_header("X-Encryption-Proxy", "smtp-gpg-proxy v%s (https://github.com/malexmave/python-smtp-gpg-proxy)" % __version__)
             cnt = 0
             attach_later = []
             for part in msg.walk():
