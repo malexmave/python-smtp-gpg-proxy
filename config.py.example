@@ -43,10 +43,10 @@ gpg_sign = SIGN_ENCRYPTED
 ### Logging
 # Logging verbosity
 # Choose one of the following:
-LOG_TIME = 0  # Print time to terminal when a message is processed
-LOG_META = 1  # Print meta-information (from:, to:, subject:, key-ID)
-LOG_ERR  = 2  # Print only on unrecoverable errors
-LOG_NONE = 3  # Print nothing, ever. Not recommended
+LOG_NONE = 0  # Print nothing, ever. Not recommended
+LOG_ERR  = 1  # Print only on unrecoverable errors
+LOG_TIME = 2  # Print time to terminal when a message is processed
+LOG_META = 3  # Print meta-information (from:, to:, subject:, key-ID)
 
 # Set the behaviour here:
 logging = LOG_TIME
