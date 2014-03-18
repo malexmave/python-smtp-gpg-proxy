@@ -30,19 +30,23 @@ def handleMissingKey(keyid, gpg):
         2 - Abort
     """
     if config.err_pubkey_not_found == config.PK_ABORT:
-        printLog("ERROR: public key not found.",
+        printLog("ERROR: Key not in keyring, aborting",
             [config.LOG_TIME, config.LOG_META, config.LOG_ERR])
         return 2
     elif config.err_pubkey_not_found == config.PK_SEND_UNENCRYPTED:
+        printLog("ERROR: Key not in keyring, sending unencrypted",
+            [config.LOG_TIME, config.LOG_META, config.LOG_ERR])
         return 1
     else:
         gpg.recv_keys(config.keyserver, keyid)
         if not keyExists(keyid, gpg):
             if config.err_pubkey_not_found == config.PK_RECV_FROM_KS_ABORT:
-                printLog("ERROR: Key not in keyring and not on keyserver",
+                printLog("ERROR: Key not in keyring and not on keyserver, aborting",
                     [config.LOG_TIME, config.LOG_META, config.LOG_ERR])
                 return 2
             elif config.err_pubkey_not_found == config.PK_RECV_FROM_KS_SEND:
+                printLog("ERROR: Key not in keyring and not on keyserver, sending unencrypted",
+                    [config.LOG_TIME, config.LOG_META, config.LOG_ERR])
                 return 1
             else:
                 printLog("ERROR: Unknown option for config.err_pubkey_not_found",
