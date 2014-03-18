@@ -26,3 +26,43 @@ mail_signature_encrypted = "\n\n--\nThis message was automatically PGP-encrypted
 
 # Signing mode
 gpg_sign_all = True
+
+### Logging
+# Logging verbosity
+# Choose one of the following:
+LOG_TIME = 0  # Print time to terminal when a message is processed
+LOG_META = 1  # Print meta-information (from:, to:, subject:, key-ID)
+LOG_ERR  = 2  # Print only on unrecoverable errors
+LOG_NONE = 3  # Print nothing, ever. Not recommended
+
+# Set the behaviour here:
+logging = LOG_TIME
+
+### Problem handling
+# Key not in keyring
+# Choose one of the following:
+PK_ABORT = 0               # Abort execution, do not send mail
+PK_RECV_FROM_KS_ABORT = 1  # Try retrieving the key from a keyserver
+# If no key is found, abort
+PK_RECV_FROM_KS_SEND = 2   # Try retrieving the key from a keyserver
+# If no key is found, send unencrypted
+PK_SEND_UNENCRYPTED = 3    # Send message unencrypted, do not try keyserver
+
+# Set the behaviour here:
+err_pubkey_not_found = PK_ABORT
+keyserver = 'pool.sks-keyservers.net'  # Keyserver to be used
+
+# Unknown error / unhandled exception while processing
+# Choose one of the following:
+UE_ABORT = 0             # Abort execution, do not send mail
+UE_TRY_SEND_ORIG = 1     # Try sending the original mail
+UE_TRY_SEND_CURRENT = 2  # Try sending the modified mail (which may be broken)
+# If the mail should be sent anyway, there is no guarantee that it will work.
+# For example, if the upstream SMTP server is incorrect or offline, sending
+# will fail no matter the setting here.
+
+# Set the behaviour here
+err_unknown_error = UE_ABORT
+
+### Do not change anything below this line
+pp = None

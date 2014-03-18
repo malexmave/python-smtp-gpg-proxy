@@ -2,19 +2,52 @@ import asyncore
 import gnupg
 import base64
 import config
+import time
+import getpass
 
 from email.parser import Parser
 from email.mime.application import MIMEApplication
 from secure_smtpd import ProxyServer
+
+def printLog(msg, level):
+    if config.logging in level:
+        print msg
+
+def keyExists(keyid, gpg):
+    # python-gnupg does not give an error message if the key does not exist.
+    # This is a workaround to determine if a public key exists.
+    if str(gpg.encrypt('test', keyid)) != '':
+        return True
+    return False
+
+def canSign(keyid, gpg, pp=None):
+    # Find out if a key can sign, and if not, why not
+    x = gpg.sign('test', keyid=keyid, passphrase=pp)
+    if str(x) == "":
+        if "secret key not available" in x.stderr:
+            printLog("ERROR: Secret key for KeyID %s not available." % keyid,
+                [config.LOG_META, config.LOG_TIME, config.LOG_ERR])
+            return False
+        if "NEED_PASSPHRASE" in x.stderr:
+            printLog("ERROR: Secret key for KeyID %s is passphrase-protected."
+                % keyid, [config.LOG_META, config.LOG_TIME, config.LOG_ERR])
+            pp = getpass.getpass("Please enter the passphrase for %s: " % keyid)
+            config.pp = pp
+            return canSign(keyid, gpg, pp)
+        else:
+            print x.stderr
+            return False
+    return True
 
 class GPGServer(ProxyServer):
 
     def process_message(self, peer, mailfrom, rcpttos, data):
         gpg = gnupg.GPG(gnupghome=config.gpg_home)
         msg = Parser().parsestr(data)
-        print "From: %s" % msg['from']
-        print "To: %s" % msg['to']
-        print "Subject: %s" % msg['subject']
+        printLog("%s: 1 Message" % time.strftime('%c'), [config.LOG_META, config.LOG_TIME])
+        printLog("From: %s" % msg['from'], [config.LOG_META])
+        printLog("To: %s" % msg['to'], [config.LOG_META])
+        printLog("Subject: %s" % msg['subject'], [config.LOG_META])
 
         keyid = None
         if msg['subject'][-10:-8] == "0x": # Regular KeyID (0x12345678)
@@ -34,10 +67,9 @@ class GPGServer(ProxyServer):
             msg['subject'] = newsub
 
         if keyid != None or config.gpg_sign_all:
-            print "Encryption / signing requested."
             if keyid != None:
-                print "KeyID: %s" % keyid
-                print "New Subject: %s" % newsub
+                printLog("KeyID: %s" % keyid, [config.LOG_META])
+                printLog("New Subject: %s" % newsub, [config.LOG_META])
 
             # TODO: Add header indicating that this program was used
             cnt = 0
@@ -48,11 +80,10 @@ class GPGServer(ProxyServer):
                 filename = part.get_filename()
                 if filename != None:
                     cnt += 1
-                    print "Attachment %i: %s" % (cnt, filename)
                     attachment = part.get_payload(decode=True)
                     if keyid:
                         att_encrypted = gpg.encrypt(attachment, [keyid, config.encrypt_to], 
-                            sign=config.signing_key, always_trust = True) # TODO: Handle missing Key
+                            sign=config.signing_key, always_trust = True, passphrase=config.pp) # TODO: Handle missing Key
                         part.set_payload(base64.b64encode(str(att_encrypted)))
                         part.set_type("application/octet-stream")
                         ct_parts = part['Content-Type'].split('"')
@@ -70,7 +101,7 @@ class GPGServer(ProxyServer):
                             mimeobj.add_header('Content-Transfer-Encoding', 'base64')
 
                         att_signed = gpg.sign(attachment, keyid=config.signing_key,
-                            detach=True)
+                            detach=True, passphrase=config.pp)
                         att_sig = MIMEApplication(str(att_signed), _subtype="octet-stream", _encoder=convertDetachedSig)
                         attach_later.append(att_sig)
                 else:
@@ -78,22 +109,30 @@ class GPGServer(ProxyServer):
                     if keyid != None:
                         body += config.mail_signature_encrypted
                         cbody = gpg.encrypt(body, [keyid, config.encrypt_to], 
-                            sign=config.signing_key, always_trust = True) # TODO: Handle missing Key
+                            sign=config.signing_key, always_trust = True, passphrase=config.pp) # TODO: Handle missing key
                     else:
                         body += config.mail_signature_signed
                         cbody = gpg.sign(body, keyid=config.signing_key,
-                            clearsign=True)
+                            clearsign=True, passphrase=config.pp)
                     part.set_payload(str(cbody))
 
             for att in attach_later:
                 msg.attach(att)
             data = str(msg)[str(msg).find("\n")+1:] # TODO: Convert to non-horrible syntax
-
-        print
+        printLog("", [config.LOG_META])
         ProxyServer.process_message(self, peer, mailfrom, rcpttos, data)
 
 
 def run():
+    gpg = gnupg.GPG(gnupghome=config.gpg_home)
+    if not canSign(config.signing_key, gpg):
+        # FUCK.
+        return 1
+    if not keyExists(config.encrypt_to, gpg):
+        printLog("ERROR: Key %s (encrypt_to) not found." % config.encrypt_to,
+            [config.LOG_META, config.LOG_TIME, config.LOG_ERR])
+        return 1
+
     foo = GPGServer(('localhost', 25), 
         (config.smtp_out_add, config.smtp_out_port), 
         ssl_out_only=config.smtp_out_force_ssl)
