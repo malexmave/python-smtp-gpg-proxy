@@ -1,4 +1,4 @@
-# Sign using this key (MUST NOT have a passphrase)
+# Sign using this key
 signing_key = "0000000000000000000000000000000000000000"
 
 # Encrypt messages to this key, in addition to the recp. key
@@ -20,7 +20,9 @@ smtp_out_force_ssl = True
 # Relevant keys are:
 # * signing_key
 # * encrypt_to
-# * All recipient keys
+# * Depending on err_pubkey_not_found setting, all recipient keys
+# You MUST run this program as the user that owns the directory, otherwise
+# retrieving keys from keyservers will fail.
 gpg_home = "/path/to/gnupghome"
 
 # Signature to be added to encrypted / signed messages
@@ -30,6 +32,8 @@ mail_signature_encrypted = "\n\n--\nThis message was automatically PGP-encrypted
 # information
 
 # Signing mode
+# True: Sign all relayed mails
+# False: Sign only encrypted mails
 gpg_sign_all = True
 
 ### Logging
