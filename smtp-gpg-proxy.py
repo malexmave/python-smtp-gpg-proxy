@@ -87,33 +87,40 @@ class GPGServer(ProxyServer):
             printLog("To: %s" % msg['to'], [config.LOG_META])
             printLog("Subject: %s" % msg['subject'], [config.LOG_META])
     
-            keyid = None
-            if msg['subject'][-10:-8] == "0x": # Regular KeyID (0x12345678)
-                keyid = msg['subject'][-10:]
-                newsub = msg['subject'][:-10]
-                del msg['subject']
-                msg['subject'] = newsub
-            elif msg['subject'][-18:-16] == "0x": # Long KeyID (0x1234567890ABCDEF)
-                keyid = msg['subject'][-18:]
-                newsub = msg['subject'][:-18]
-                del msg['subject']
-                msg['subject'] = newsub
-            elif msg['subject'][-42:-40] == "0x": # Full Fingerprint w/o spaces
-                keyid = msg['subject'][-42:]
-                newsub = msg['subject'][:-42]
-                del msg['subject']
-                msg['subject'] = newsub
-            if keyid and not keyExists(keyid, gpg):
-                action = handleMissingKey(keyid, gpg)
-                if action == 1:
-                    keyid = None
-                if action == 2:
-                    return 1
+            KeyIDs = []
+            while True:
+                if msg['subject'][-11:-8] == " 0x": # Regular KeyID (0x12345678)
+                    KeyIDs.append(msg['subject'][-10:])
+                    newsub = msg['subject'][:-11]
+                    del msg['subject']
+                    msg['subject'] = newsub
+                elif msg['subject'][-19:-16] == " 0x": # Long KeyID (0x1234567890ABCDEF)
+                    KeyIDs.append(msg['subject'][-18:])
+                    newsub = msg['subject'][:-19]
+                    del msg['subject']
+                    msg['subject'] = newsub
+                elif msg['subject'][-43:-40] == " 0x": # Full Fingerprint w/o spaces
+                    KeyIDs.append(msg['subject'][-42:])
+                    newsub = msg['subject'][:-43]
+                    del msg['subject']
+                    msg['subject'] = newsub
+                else:
+                    break
+
+            for kID in KeyIDs:
+                if not keyExists(kID, gpg):
+                    action = handleMissingKey(kID, gpg)
+                    if action == 1:
+                        KeyIDs = None
+                    if action == 2:
+                        return 1
     
-            if keyid != None or config.gpg_sign == config.SIGN_ALL:
-                if keyid != None:
-                    printLog("KeyID: %s" % keyid, [config.LOG_META])
+            if KeyIDs != [] or config.gpg_sign == config.SIGN_ALL:
+                if KeyIDs != []:
+                    for kID in KeyIDs:
+                        printLog("KeyID: %s" % kID, [config.LOG_META])
                     printLog("New Subject: %s" % newsub, [config.LOG_META])
+                    KeyIDs.append(config.encrypt_to)
     
                 msg.add_header("X-Encryption-Proxy", "smtp-gpg-proxy v%s" % __version__)
                 attach_later = []
@@ -123,12 +130,12 @@ class GPGServer(ProxyServer):
                     filename = part.get_filename()
                     if filename != None:
                         attachment = part.get_payload(decode=True)
-                        if keyid:
+                        if KeyIDs != []:
                             if config.gpg_sign in [config.SIGN_ENCRYPTED, config.SIGN_ALL]:
-                                att_encrypted = gpg.encrypt(attachment, [keyid, config.encrypt_to], 
+                                att_encrypted = gpg.encrypt(attachment, KeyIDs, 
                                     sign=config.signing_key, always_trust = True, passphrase=config.pp)
                             elif config.gpg_sign == config.SIGN_NONE:
-                                att_encrypted = gpg.encrypt(attachment, [keyid, config.encrypt_to], 
+                                att_encrypted = gpg.encrypt(attachment, KeyIDs, 
                                     always_trust = True, passphrase=config.pp)
                             part.set_payload(base64.b64encode(str(att_encrypted)))
                             part.set_type("application/octet-stream")
@@ -152,13 +159,13 @@ class GPGServer(ProxyServer):
                             attach_later.append(att_sig)
                     else:
                         body = part.get_payload(decode=True)
-                        if keyid != None:
+                        if KeyIDs != []:
                             body += config.mail_signature_encrypted
                             if config.gpg_sign in [config.SIGN_ALL, config.SIGN_ENCRYPTED]:
-                                cbody = gpg.encrypt(body, [keyid, config.encrypt_to], 
+                                cbody = gpg.encrypt(body, KeyIDs, 
                                     sign=config.signing_key, always_trust = True, passphrase=config.pp)
                             elif config.gpg_sign == config.SIGN_NONE:
-                                cbody = gpg.encrypt(body, [keyid, config.encrypt_to], 
+                                cbody = gpg.encrypt(body, KeyIDs, 
                                     always_trust = True, passphrase=config.pp)
                         elif config.gpg_sign == config.SIGN_ALL:
                             body += config.mail_signature_signed
