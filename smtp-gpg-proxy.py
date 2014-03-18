@@ -88,6 +88,7 @@ class GPGServer(ProxyServer):
             printLog("Subject: %s" % msg['subject'], [config.LOG_META])
     
             KeyIDs = []
+            msg['subject'] = msg['subject'].strip()
             while True:
                 if msg['subject'][-11:-8] == " 0x": # Regular KeyID (0x12345678)
                     KeyIDs.append(msg['subject'][-10:])
