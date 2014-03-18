@@ -16,9 +16,39 @@ def printLog(msg, level):
 def keyExists(keyid, gpg):
     # python-gnupg does not give an error message if the key does not exist.
     # This is a workaround to determine if a public key exists.
-    if str(gpg.encrypt('test', keyid)) != '':
+    if str(gpg.encrypt('test', keyid, always_trust=True)) != '':
         return True
     return False
+
+def handleMissingKey(keyid, gpg):
+    """If a public key is missing, this function handles the situation 
+    according to config.err_pubkey_not_found.
+
+    returns:
+        0 - Continue with encryption
+        1 - Continue without encryption
+        2 - Abort
+    """
+    if config.err_pubkey_not_found == config.PK_ABORT:
+        printLog("ERROR: public key not found.",
+            [config.LOG_TIME, config.LOG_META, config.LOG_ERR])
+        return 2
+    elif config.err_pubkey_not_found == config.PK_SEND_UNENCRYPTED:
+        return 1
+    else:
+        gpg.recv_keys(config.keyserver, keyid)
+        if not keyExists(keyid, gpg):
+            if config.err_pubkey_not_found == config.PK_RECV_FROM_KS_ABORT:
+                printLog("ERROR: Key not in keyring and not on keyserver",
+                    [config.LOG_TIME, config.LOG_META, config.LOG_ERR])
+                return 2
+            elif config.err_pubkey_not_found == config.PK_RECV_FROM_KS_SEND:
+                return 1
+            else:
+                printLog("ERROR: Unknown option for config.err_pubkey_not_found",
+                    [config.LOG_TIME, config.LOG_META, config.LOG_ERR])
+                return 2
+        return 0
 
 def canSign(keyid, gpg, pp=None):
     # Find out if a key can sign, and if not, why not
@@ -61,10 +91,16 @@ class GPGServer(ProxyServer):
             del msg['subject']
             msg['subject'] = newsub
         elif msg['subject'][-42:-40] == "0x": # Full Fingerprint w/o spaces
-            keyid = msg['subject'][-40:]
+            keyid = msg['subject'][-42:]
             newsub = msg['subject'][:-42]
             del msg['subject']
             msg['subject'] = newsub
+        if keyid and not keyExists(keyid, gpg):
+            action = handleMissingKey(keyid, gpg)
+            if action == 1:
+                keyid = None
+            if action == 2:
+                return 1
 
         if keyid != None or config.gpg_sign_all:
             if keyid != None:
@@ -83,7 +119,7 @@ class GPGServer(ProxyServer):
                     attachment = part.get_payload(decode=True)
                     if keyid:
                         att_encrypted = gpg.encrypt(attachment, [keyid, config.encrypt_to], 
-                            sign=config.signing_key, always_trust = True, passphrase=config.pp) # TODO: Handle missing Key
+                            sign=config.signing_key, always_trust = True, passphrase=config.pp)
                         part.set_payload(base64.b64encode(str(att_encrypted)))
                         part.set_type("application/octet-stream")
                         ct_parts = part['Content-Type'].split('"')
@@ -109,7 +145,7 @@ class GPGServer(ProxyServer):
                     if keyid != None:
                         body += config.mail_signature_encrypted
                         cbody = gpg.encrypt(body, [keyid, config.encrypt_to], 
-                            sign=config.signing_key, always_trust = True, passphrase=config.pp) # TODO: Handle missing key
+                            sign=config.signing_key, always_trust = True, passphrase=config.pp)
                     else:
                         body += config.mail_signature_signed
                         cbody = gpg.sign(body, keyid=config.signing_key,
@@ -126,14 +162,13 @@ class GPGServer(ProxyServer):
 def run():
     gpg = gnupg.GPG(gnupghome=config.gpg_home)
     if not canSign(config.signing_key, gpg):
-        # FUCK.
         return 1
     if not keyExists(config.encrypt_to, gpg):
         printLog("ERROR: Key %s (encrypt_to) not found." % config.encrypt_to,
             [config.LOG_META, config.LOG_TIME, config.LOG_ERR])
         return 1
 
-    foo = GPGServer(('localhost', 25), 
+    foo = GPGServer((config.smtp_in_add, config.smtp_in_port), 
         (config.smtp_out_add, config.smtp_out_port), 
         ssl_out_only=config.smtp_out_force_ssl)
     try:

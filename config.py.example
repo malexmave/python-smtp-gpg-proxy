@@ -4,6 +4,11 @@ signing_key = "0000000000000000000000000000000000000000"
 # Encrypt messages to this key, in addition to the recp. key
 encrypt_to = "0000000000000000000000000000000000000000"
 
+# Incoming SMTP Server data
+smtp_in_add = "localhost"  # It is strongly advisable to leave this as "localhost"
+smtp_in_port = 2525        # 25 would need root rights, which would in turn lead to
+# problems when receiving keys from the keyserver.
+
 # Outbound SMTP Server data
 smtp_out_add = "smtp.provider.tld"
 smtp_out_port = 465  # As Integer
