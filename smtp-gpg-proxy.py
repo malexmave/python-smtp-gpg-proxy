@@ -110,7 +110,7 @@ class GPGServer(ProxyServer):
                 if action == 2:
                     return 1
     
-            if keyid != None or config.gpg_sign_all:
+            if keyid != None or config.gpg_sign == config.SIGN_ALL:
                 if keyid != None:
                     printLog("KeyID: %s" % keyid, [config.LOG_META])
                     printLog("New Subject: %s" % newsub, [config.LOG_META])
@@ -124,8 +124,12 @@ class GPGServer(ProxyServer):
                     if filename != None:
                         attachment = part.get_payload(decode=True)
                         if keyid:
-                            att_encrypted = gpg.encrypt(attachment, [keyid, config.encrypt_to], 
-                                sign=config.signing_key, always_trust = True, passphrase=config.pp)
+                            if config.gpg_sign in [config.SIGN_ENCRYPTED, config.SIGN_ALL]:
+                                att_encrypted = gpg.encrypt(attachment, [keyid, config.encrypt_to], 
+                                    sign=config.signing_key, always_trust = True, passphrase=config.pp)
+                            elif config.gpg_sign == config.SIGN_NONE:
+                                att_encrypted = gpg.encrypt(attachment, [keyid, config.encrypt_to], 
+                                    always_trust = True, passphrase=config.pp)
                             part.set_payload(base64.b64encode(str(att_encrypted)))
                             part.set_type("application/octet-stream")
                             ct_parts = part['Content-Type'].split('"')
@@ -136,7 +140,7 @@ class GPGServer(ProxyServer):
                             new_cd = cd_parts[0] + '"' + '"'.join(cd_parts[1:-1]) + '.gpg"' + cd_parts[-1]
                             del part['Content-Disposition']
                             part['Content-Disposition'] = new_cd
-                        else:
+                        elif config.gpg_sign == config.SIGN_ALL:
                             def convertDetachedSig(mimeobj):
                                 mimeobj.set_payload(base64.b64encode(mimeobj.get_payload()))
                                 mimeobj.add_header('Content-Disposition', 'attachment', filename=filename + ".sig")
@@ -150,9 +154,13 @@ class GPGServer(ProxyServer):
                         body = part.get_payload(decode=True)
                         if keyid != None:
                             body += config.mail_signature_encrypted
-                            cbody = gpg.encrypt(body, [keyid, config.encrypt_to], 
-                                sign=config.signing_key, always_trust = True, passphrase=config.pp)
-                        else:
+                            if config.gpg_sign in [config.SIGN_ALL, config.SIGN_ENCRYPTED]:
+                                cbody = gpg.encrypt(body, [keyid, config.encrypt_to], 
+                                    sign=config.signing_key, always_trust = True, passphrase=config.pp)
+                            elif config.gpg_sign == config.SIGN_NONE:
+                                cbody = gpg.encrypt(body, [keyid, config.encrypt_to], 
+                                    always_trust = True, passphrase=config.pp)
+                        elif config.gpg_sign == config.SIGN_ALL:
                             body += config.mail_signature_signed
                             cbody = gpg.sign(body, keyid=config.signing_key,
                                 clearsign=True, passphrase=config.pp)
@@ -162,6 +170,7 @@ class GPGServer(ProxyServer):
                     msg.attach(att)
                 data = str(msg)[str(msg).find("\n")+1:] # TODO: Convert to non-horrible syntax
             printLog("", [config.LOG_META])
+
         except KeyboardInterrupt:
             printLog("Caught KeyboardInterrupt, exiting.", 
                 [config.LOG_ERR, config.LOG_META, config.LOG_TIME])
@@ -181,7 +190,7 @@ class GPGServer(ProxyServer):
 
 def run():
     gpg = gnupg.GPG(gnupghome=config.gpg_home)
-    if not canSign(config.signing_key, gpg):
+    if config.gpg_sign != config.SIGN_NONE and not canSign(config.signing_key, gpg):
         return 1
     if not keyExists(config.encrypt_to, gpg):
         printLog("ERROR: Key %s (encrypt_to) not found." % config.encrypt_to,

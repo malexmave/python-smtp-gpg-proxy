@@ -31,10 +31,14 @@ mail_signature_encrypted = "\n\n--\nThis message was automatically PGP-encrypted
 # Consider adding an URL explaining your signing policies or similar 
 # information
 
-# Signing mode
-# True: Sign all relayed mails
-# False: Sign only encrypted mails
-gpg_sign_all = True
+### Signing mode
+# Choose one of the following:
+SIGN_NONE = 0       # Never sign messages
+SIGN_ENCRYPTED = 1  # Sign encrypted messages
+SIGN_ALL = 2        # Sign all messages
+
+# Set the behaviour here:
+gpg_sign = SIGN_ENCRYPTED
 
 ### Logging
 # Logging verbosity
