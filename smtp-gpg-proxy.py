@@ -172,7 +172,7 @@ class GPGServer(ProxyServer):
                             body += config.mail_signature_signed
                             cbody = gpg.sign(body, keyid=config.signing_key,
                                 clearsign=True, passphrase=config.pp)
-                        part.set_payload(str(cbody))
+                        part.set_payload(cbody.data)
     
                 for att in attach_later:
                     msg.attach(att)
