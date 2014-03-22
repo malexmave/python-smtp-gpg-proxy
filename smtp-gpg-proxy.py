@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import asyncore
 import base64
 import config

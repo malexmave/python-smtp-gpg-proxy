@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Sign using this key
 signing_key = "0000000000000000000000000000000000000000"
 
